@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 
 interface SpectatorOverlayProps {
@@ -44,9 +45,9 @@ const SpectatorOverlay: React.FC<SpectatorOverlayProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={onAccessLab}
-            className="group px-8 py-4 bg-white/5 border border-white/10 rounded-full text-[10px] font-black tracking-[0.3em] hover:bg-cyan-500 hover:text-white hover:border-cyan-400 transition-all duration-500 uppercase flex items-center gap-4 shadow-2xl hover:shadow-cyan-500/20"
+          <Link
+            href={"/"}
+            className="group px-8 py-4 bg-white/5 border border-white/10 rounded-full text-[10px] font-black tracking-[0.3em] hover:bg-cyan-500 hover:text-white hover:border-cyan-400 transition-all duration-500 uppercase flex justify-between items-center gap-4 shadow-2xl hover:shadow-cyan-500/20"
           >
             ACCESS LAB
             <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
@@ -64,18 +65,7 @@ const SpectatorOverlay: React.FC<SpectatorOverlayProps> = ({
                 />
               </svg>
             </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Interaction Zone Hint */}
-      <div className="hidden md:flex flex-1 items-end justify-center pb-12 animate-in fade-in duration-1000 delay-1000">
-        <div className="flex items-center gap-4 opacity-20">
-          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <p className="text-[9px] font-mono tracking-[0.4em] uppercase">
-            Interactive Field Active
-          </p>
-          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          </Link>
         </div>
       </div>
     </div>

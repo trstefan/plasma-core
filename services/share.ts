@@ -12,7 +12,9 @@ export function encodeShareData(data: ShareData): string {
 
 export function decodeShareData(encoded: string): ShareData | null {
   try {
-    return JSON.parse(atob(encoded));
+    // Handle potential URL encoding and padding
+    const normalized = decodeURIComponent(encoded).replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(normalized));
   } catch (e) {
     console.error("Failed to decode share data", e);
     return null;

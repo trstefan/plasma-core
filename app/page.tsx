@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 import PlasmaGlobe from "@/components/PlasmaGlobe";
 import SpectatorOverlay from "@/components/SpectatorOverlay";
 import GeminiPanel from "@/components/GeminiPanel";
@@ -13,53 +13,33 @@ import { useHudState } from "@/hooks/useHudState";
 import { usePresets } from "@/hooks/usePresets";
 import { useShare } from "@/hooks/useShare";
 import { useThemeGenerator } from "@/hooks/useThemeGenerator";
-import { decodeShareData } from "@/services/share";
 
 import INITIAL_PARAMS from "@/constants/initialParams";
 
 export default function Home() {
+  const [isGlobeReady, setIsGlobeReady] = useState(false);
+
   const {
     initialParams,
     initialIsSpectator,
     initialSharedMessage,
     initialThemeDesc,
-  } = // eslint-disable-next-line react-hooks/preserve-manual-memoization
-    useMemo(() => {
-    if (typeof window === "undefined") {
-      return {
-        initialParams: INITIAL_PARAMS,
-        initialIsSpectator: false,
-        initialSharedMessage: "",
-        initialThemeDesc: "Default Singularity",
-      };
-    }
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedCore = urlParams.get("core");
-    if (sharedCore) {
-      const decoded = decodeShareData(sharedCore);
-      if (decoded) {
-        return {
-          initialParams: decoded.params,
-          initialIsSpectator: true,
-          initialSharedMessage: decoded.message || "",
-          initialThemeDesc: decoded.description || "Shared Singularity",
-        };
-      }
-    }
-    return {
-      initialParams: INITIAL_PARAMS,
-      initialIsSpectator: false,
-      initialSharedMessage: "",
-      initialThemeDesc: "Default Singularity",
-    };
-  }, []);
+  } = {
+    initialParams: INITIAL_PARAMS,
+    initialIsSpectator: false,
+    initialSharedMessage: "",
+    initialThemeDesc: "Default Singularity",
+  };
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const { params, setParams, handleParamsChange, resetParams } = usePlasmaParams(initialParams);
+  const { params, setParams, handleParamsChange, resetParams } =
+    usePlasmaParams(initialParams);
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const { showControls, showGemini, toggleControls, toggleGemini } = useHudState(initialIsSpectator);
+  const { showControls, showGemini, toggleControls, toggleGemini } =
+    useHudState(initialIsSpectator);
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const { userPresets, presetName, setPresetName, savePreset, deletePreset } = usePresets(params);
+  const { userPresets, presetName, setPresetName, savePreset, deletePreset } =
+    usePresets(params);
 
   const {
     moodInput,
@@ -79,13 +59,29 @@ export default function Home() {
     sharedMessage,
     handleShare,
     exitSpectatorMode,
-  } = useShare(params, lastThemeDesc, initialIsSpectator, initialSharedMessage, () => {
-    toggleGemini(true);
-  });
+  } = useShare(
+    params,
+    lastThemeDesc,
+    initialIsSpectator,
+    initialSharedMessage,
+    () => {
+      toggleGemini(true);
+    }
+  );
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden select-none text-white">
-      <PlasmaGlobe params={params} onParamsChange={handleParamsChange} />
+      <div
+        className={`transition-opacity duration-1000 ${
+          isGlobeReady ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <PlasmaGlobe
+          params={params}
+          onParamsChange={handleParamsChange}
+          onReady={() => setIsGlobeReady(true)}
+        />
+      </div>
 
       <SpectatorOverlay
         isSpectator={isSpectator}
@@ -97,19 +93,25 @@ export default function Home() {
       />
 
       {/* Main HUD Overlay */}
-      <div className="absolute inset-0 pointer-events-none flex p-8 gap-8 overflow-hidden">
+      <div
+        className={`absolute inset-0 pointer-events-none flex p-8 gap-8 overflow-hidden transition-all duration-1000 delay-500 ${
+          isGlobeReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
         {/* Left Side: Branding & AI Prompt */}
         <div className="flex flex-col justify-between w-96 shrink-0 h-full">
           <header
             className={`pointer-events-auto transition-all duration-1000 transform ${
-              showGemini ? "translate-x-0 opacity-100" : "-translate-x-12 opacity-0"
+              showGemini
+                ? "translate-x-0 opacity-100"
+                : "-translate-x-12 opacity-0"
             }`}
           >
-            <h1 className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-linear-to-br from-white via-cyan-200 to-blue-500">
-              PLASMA CORE
+            <h1 className="text-5xl font-black uppercase tracking-tighter text-transparent bg-clip-text bg-linear-to-br from-white via-cyan-200 to-blue-500">
+              Ethereal Plasma Visualizer
             </h1>
             <p className="text-[10px] text-cyan-400/60 uppercase tracking-[0.3em] font-mono mt-1">
-              SYSTEM RE-SYNTHESIS v3.0
+              SYSTEM SYNTHESIS v1.0
             </p>
           </header>
 

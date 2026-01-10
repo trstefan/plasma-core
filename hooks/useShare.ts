@@ -21,8 +21,8 @@ export function useShare(
       description: lastThemeDesc,
     };
     const encoded = encodeShareData(data);
-    const url = new URL(window.location.href);
-    url.searchParams.set("core", encoded);
+    const url = new URL(window.location.origin);
+    url.pathname = `/v/${encoded}`;
 
     navigator.clipboard.writeText(url.toString());
     setCopyStatus(true);

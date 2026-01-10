@@ -15,9 +15,10 @@ import { PlasmaParams } from "@/types";
 interface Props {
   params: PlasmaParams;
   onParamsChange?: (newParams: Partial<PlasmaParams>) => void;
+  onReady?: () => void;
 }
 
-const PlasmaGlobe: React.FC<Props> = ({ params }) => {
+const PlasmaGlobe: React.FC<Props> = ({ params, onReady }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const composerRef = useRef<EffectComposer | null>(null);
@@ -26,6 +27,7 @@ const PlasmaGlobe: React.FC<Props> = ({ params }) => {
   const bloomPassRef = useRef<UnrealBloomPass | null>(null);
   const mainGroupRef = useRef<THREE.Group>(new THREE.Group());
   const pMatRef = useRef<THREE.ShaderMaterial | null>(null);
+  const hasSignaledReady = useRef(false);
 
   const updateUniforms = useCallback(() => {
     if (plasmaMatRef.current) {
@@ -217,6 +219,14 @@ const PlasmaGlobe: React.FC<Props> = ({ params }) => {
 
       controls.update();
       composer.render();
+
+      if (onReady && !hasSignaledReady.current) {
+        hasSignaledReady.current = true;
+        // Small delay to ensure browser has painted the WebGL canvas
+        requestAnimationFrame(() => {
+          onReady();
+        });
+      }
     };
 
     animate();

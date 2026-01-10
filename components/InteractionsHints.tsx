@@ -19,9 +19,8 @@ const InteractionsHints: React.FC<InteractionsHintsProps> = ({
         showGemini || showControls ? "opacity-30" : "opacity-0"
       }`}
     >
-      <p className="text-[9px] font-mono tracking-widest text-white/40 uppercase">
-        Drag to Revolve &bull; Scroll to Scale &bull; Double click to
-        reset
+      <p className="text-[9px] font-mono tracking-widest text-white/40 uppercase text-center">
+        Drag to Revolve &bull; Scroll to Scale &bull; Double click to reset
       </p>
     </div>
   );
