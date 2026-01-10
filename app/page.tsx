@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
-import PlasmaGlobe from "@/components/PlasmaGlobe";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { PlasmaParams } from "@/types";
+import PlasmaGlobe from "@/components/PlasmaGlobe";
+import ControlGroup from "@/components/ControlGroup";
+import RangeInput from "@/components/RangeInput";
+import ColorInput from "@/components/ColorInput";
 
 const INITIAL_PARAMS: PlasmaParams = {
   timeScale: 0.8,
@@ -21,74 +24,147 @@ const INITIAL_PARAMS: PlasmaParams = {
   bloomThreshold: 0.1,
 };
 
-const ControlGroup: React.FC<{ title: string; children: React.ReactNode }> = ({
-  title,
-  children,
-}) => (
-  <div className="mb-6">
-    <h4 className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-      <span className="h-px flex-1 bg-cyan-400/20" />
-      {title}
-    </h4>
-    <div className="space-y-4">{children}</div>
-  </div>
-);
-
-const RangeInput: React.FC<{
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  onChange: (val: number) => void;
-}> = ({ label, value, min, max, step = 0.01, onChange }) => (
-  <div className="flex flex-col gap-1">
-    <div className="flex justify-between text-[10px] text-gray-400 font-mono">
-      <span>{label}</span>
-      <span className="text-cyan-300">{value.toFixed(2)}</span>
-    </div>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full accent-cyan-500 cursor-pointer"
-    />
-  </div>
-);
-
-const ColorInput: React.FC<{
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-}> = ({ label, value, onChange }) => (
-  <div className="flex items-center justify-between">
-    <span className="text-[10px] text-gray-400 font-mono">{label}</span>
-    <div className="flex items-center gap-2">
-      <span className="text-[9px] text-gray-600 font-mono">
-        {value.toUpperCase()}
-      </span>
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-6 h-6 rounded-md border-0 p-0 overflow-hidden bg-transparent cursor-pointer hover:scale-110 transition-transform"
-      />
-    </div>
-  </div>
-);
+const BUILT_IN_PRESETS: Record<string, PlasmaParams> = {
+  "Solar Flare": {
+    ...INITIAL_PARAMS,
+    colorDeep: "#440000",
+    colorMid: "#ff4400",
+    colorBright: "#ffff00",
+    shellColor: "#ff8800",
+    plasmaScale: 0.25,
+    timeScale: 1.2,
+  },
+  "Deep Nebula": {
+    ...INITIAL_PARAMS,
+    colorDeep: "#110022",
+    colorMid: "#6600ff",
+    colorBright: "#ff00ff",
+    shellColor: "#aa00ff",
+    plasmaScale: 0.1,
+    voidThreshold: 0.2,
+  },
+  "Frozen Heart": {
+    ...INITIAL_PARAMS,
+    colorDeep: "#001122",
+    colorMid: "#00ffff",
+    colorBright: "#ffffff",
+    shellColor: "#88ffff",
+    plasmaScale: 0.05,
+    timeScale: 0.4,
+  },
+  "Emerald Core": {
+    ...INITIAL_PARAMS,
+    colorDeep: "#002200",
+    colorMid: "#00ff44",
+    colorBright: "#aaffaa",
+    shellColor: "#00ff88",
+    plasmaScale: 0.2,
+    plasmaBrightness: 2.5,
+  },
+};
 
 export default function Home() {
-  const [params, setParams] = useState<PlasmaParams>(INITIAL_PARAMS);
-  const [moodInput, setMoodInput] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lastThemeDesc, setLastThemeDesc] = useState("Default Singularity");
+  const {
+    initialParams,
+    initialIsSpectator,
+    initialSharedMessage,
+    initialThemeDesc,
+  } = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedCore = urlParams.get("core");
+    if (sharedCore) {
+      try {
+        const decoded = JSON.parse(atob(sharedCore));
+        return {
+          initialParams: decoded.params as PlasmaParams,
+          initialIsSpectator: true,
+          initialSharedMessage: decoded.message || "",
+          initialThemeDesc: decoded.description || "Shared Singularity",
+        };
+      } catch (e) {
+        console.error("Failed to decode shared core", e);
+      }
+    }
+    return {
+      initialParams: INITIAL_PARAMS,
+      initialIsSpectator: false,
+      initialSharedMessage: "",
+      initialThemeDesc: "Default Singularity",
+    };
+  }, []);
 
-  // HUD Visibility State
-  const [showControls, setShowControls] = useState(true);
-  const [showGemini, setShowGemini] = useState(true);
+  const [params, setParams] = useState<PlasmaParams>(initialParams);
+  const [moodInput, setMoodInput] = useState("");
+  const [shareMessageInput, setShareMessageInput] = useState("");
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastThemeDesc, setLastThemeDesc] = useState(initialThemeDesc);
+  const [presetName, setPresetName] = useState("");
+  const [userPresets, setUserPresets] = useState<Record<string, PlasmaParams>>(
+    {}
+  );
+
+  // HUD Visibility State - initialized based on mode
+  const [showControls, setShowControls] = useState(!initialIsSpectator);
+  const [showGemini, setShowGemini] = useState(!initialIsSpectator);
+
+  // Sharing State
+  const [isSpectator, setIsSpectator] = useState(initialIsSpectator);
+  const [sharedMessage, setSharedMessage] = useState(initialSharedMessage);
+  const [copyStatus, setCopyStatus] = useState(false);
+
+  // Load user presets from LocalStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("plasma_presets");
+    if (saved) {
+      try {
+        setUserPresets(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleShare = () => {
+    const data = {
+      params,
+      message: shareMessageInput || lastThemeDesc,
+      description: lastThemeDesc,
+    };
+    const encoded = btoa(JSON.stringify(data));
+    const url = new URL(window.location.href);
+    url.searchParams.set("core", encoded);
+
+    navigator.clipboard.writeText(url.toString());
+    setCopyStatus(true);
+    setShareMessageInput("");
+    setTimeout(() => setCopyStatus(false), 2000);
+  };
+
+  // Load presets from LocalStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("plasma_presets");
+    if (saved) {
+      try {
+        setUserPresets(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse presets", e);
+      }
+    }
+  }, []);
+
+  const savePreset = () => {
+    if (!presetName.trim()) return;
+    const updated = { ...userPresets, [presetName]: { ...params } };
+    setUserPresets(updated);
+    localStorage.setItem("plasma_presets", JSON.stringify(updated));
+    setPresetName("");
+  };
+
+  const deletePreset = (name: string) => {
+    const updated = { ...userPresets };
+    delete updated[name];
+    setUserPresets(updated);
+    localStorage.setItem("plasma_presets", JSON.stringify(updated));
+  };
 
   const handleParamsChange = useCallback((newParams: Partial<PlasmaParams>) => {
     setParams((prev) => ({ ...prev, ...newParams }));
@@ -125,6 +201,7 @@ export default function Home() {
       }));
 
       setLastThemeDesc(theme.description);
+
       setMoodInput("");
     } catch (err) {
       console.error(err);
@@ -136,6 +213,74 @@ export default function Home() {
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden select-none text-white">
       <PlasmaGlobe params={params} onParamsChange={handleParamsChange} />
+
+      {/* Cinematic Overlay for Spectators */}
+      {/* Redesigned Spectator Overlay */}
+      {isSpectator && !showControls && !showGemini && (
+        <div className="absolute inset-0 flex pointer-events-none">
+          {/* Glass Side Panel */}
+          <div className="w-full md:w-111.5 h-full bg-linear-to-r from-black/80 via-black/40 to-transparent backdrop-blur-xs p-12 md:p-20 flex flex-col justify-center animate-in slide-in-from-left duration-1000 ease-out">
+            <div className="max-w-md pointer-events-auto">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-8 h-px bg-cyan-400" />
+                <p className="text-[10px] text-cyan-400 uppercase tracking-[0.5em] font-bold font-mono">
+                  Incoming Singularity
+                </p>
+              </div>
+
+              <h2 className="text-4xl md:text-5xl font-extralight tracking-tight text-white leading-[1.2] mb-10 whitespace-pre-wrap animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
+                {sharedMessage || "A silent echo from the core."}
+              </h2>
+
+              <div className="space-y-2 mb-12 opacity-60">
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-mono">
+                  Transmission Identity
+                </p>
+                <p className="text-xs font-light italic text-cyan-100">
+                  "{lastThemeDesc}"
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  window.history.pushState({}, "", window.location.pathname);
+                  setIsSpectator(false);
+                  setShowGemini(true);
+                }}
+                className="group px-8 py-4 bg-white/5 border border-white/10 rounded-full text-[10px] font-black tracking-[0.3em] hover:bg-cyan-500 hover:text-white hover:border-cyan-400 transition-all duration-500 uppercase flex items-center gap-4 shadow-2xl hover:shadow-cyan-500/20"
+              >
+                ACCESS LAB
+                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                  <svg
+                    className="w-3 h-3 group-hover:translate-x-0.5 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
+                  </svg>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* Interaction Zone Hint */}
+          <div className="hidden md:flex flex-1 items-end justify-center pb-12 animate-in fade-in duration-1000 delay-1000">
+            <div className="flex items-center gap-4 opacity-20">
+              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <p className="text-[9px] font-mono tracking-[0.4em] uppercase">
+                Interactive Field Active
+              </p>
+              <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main HUD Overlay */}
       <div className="absolute inset-0 pointer-events-none flex p-8 gap-8 overflow-hidden">
@@ -164,7 +309,8 @@ export default function Home() {
                 : "-translate-x-full opacity-0"
             }`}
           >
-            <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative">
+            <div className="bg-black/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-cyan-500 to-transparent opacity-20" />
               {/* Panel Close Button */}
               <button
                 onClick={() => setShowGemini(false)}
@@ -217,12 +363,66 @@ export default function Home() {
                 </button>
               </form>
 
-              <div className="mt-6 pt-6 border-t border-white/5">
-                <div className="text-[9px] text-gray-600 uppercase mb-1">
-                  Last Transmission
+              <div className="mt-6 pt-6 border-t border-white/5 flex flex-col gap-6">
+                <div>
+                  <div className="text-[9px] text-gray-600 uppercase mb-1">
+                    Last Transmission
+                  </div>
+                  <div className="text-sm font-light text-cyan-100 italic">
+                    "{lastThemeDesc}"
+                  </div>
                 </div>
-                <div className="text-sm font-light text-cyan-100 italic">
-                  "{lastThemeDesc}"
+
+                <div className="space-y-3">
+                  <div className="text-[9px] text-gray-400 uppercase tracking-widest">
+                    Share Configuration
+                  </div>
+                  <textarea
+                    value={shareMessageInput}
+                    onChange={(e) => setShareMessageInput(e.target.value)}
+                    placeholder="Add a personal message for the recipient..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs text-cyan-50 focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all placeholder:text-white/10 min-h-20 resize-none"
+                  />
+                  <button
+                    onClick={handleShare}
+                    className="w-full py-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl text-[10px] font-bold tracking-widest text-cyan-400 hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    {copyStatus ? (
+                      <>
+                        <svg
+                          className="w-3 h-3 text-green-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        LINK COPIED
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-3 h-3 group-hover:rotate-12 transition-transform"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                          />
+                        </svg>
+                        SHARE CORE
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -230,11 +430,18 @@ export default function Home() {
         </div>
 
         {/* Center Space: Interaction Hints */}
-        <div className="flex-1 flex items-end justify-center pb-4 opacity-30">
-          <p className="text-[9px] font-mono tracking-widest text-white/40 uppercase">
-            Drag to Revolve &bull; Scroll to Scale &bull; Double click to reset
-          </p>
-        </div>
+        {!isSpectator && (
+          <div
+            className={`flex-1 flex items-end justify-center pb-4 transition-opacity duration-1000 ${
+              showGemini || showControls ? "opacity-30" : "opacity-0"
+            }`}
+          >
+            <p className="text-[9px] font-mono tracking-widest text-white/40 uppercase">
+              Drag to Revolve &bull; Scroll to Scale &bull; Double click to
+              reset
+            </p>
+          </div>
+        )}
 
         {/* Right Side: Control Deck */}
         <div
@@ -268,6 +475,69 @@ export default function Home() {
                 </svg>
               </button>
             </div>
+
+            <ControlGroup title="Presets Memory">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {Object.keys(BUILT_IN_PRESETS).map((name) => (
+                  <button
+                    key={name}
+                    onClick={() => setParams(BUILT_IN_PRESETS[name])}
+                    className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] uppercase font-bold hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all"
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+
+              {Object.keys(userPresets).length > 0 && (
+                <div className="grid grid-cols-1 gap-2 border-t border-white/5 pt-4 mt-2">
+                  {Object.keys(userPresets).map((name) => (
+                    <div key={name} className="flex gap-2">
+                      <button
+                        onClick={() => setParams(userPresets[name])}
+                        className="flex-1 text-left px-3 py-2 bg-cyan-950/20 border border-cyan-500/10 rounded-lg text-[9px] uppercase font-mono hover:bg-cyan-500/10 transition-all truncate"
+                      >
+                        {name}
+                      </button>
+                      <button
+                        onClick={() => deletePreset(name)}
+                        className="px-2 text-red-400/50 hover:text-red-400 transition-colors"
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                <input
+                  type="text"
+                  placeholder="New preset name..."
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg py-1.5 px-3 text-[10px] text-cyan-50 focus:outline-none focus:border-cyan-500/50"
+                />
+                <button
+                  onClick={savePreset}
+                  className="bg-cyan-600 hover:bg-cyan-500 px-3 rounded-lg text-[10px] font-bold"
+                >
+                  SAVE
+                </button>
+              </div>
+            </ControlGroup>
 
             <ControlGroup title="Energy Dynamics">
               <RangeInput
@@ -376,7 +646,7 @@ export default function Home() {
         </div>
 
         {/* HUD Toggle Tray - Only visible when a panel is hidden */}
-        {(!showControls || !showGemini) && (
+        {!isSpectator && (!showControls || !showGemini) && (
           <div className="absolute top-8 right-8 flex flex-col gap-4 pointer-events-auto">
             {!showGemini && (
               <button
