@@ -16,5 +16,5 @@ export interface PlasmaParams {
 }
 
 export interface ShaderUniforms {
-  [key: string]: { value: any };
+  [key: string]: { value: unknown };
 }

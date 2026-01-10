@@ -229,12 +229,13 @@ const PlasmaGlobe: React.FC<Props> = ({ params }) => {
     };
     window.addEventListener("resize", handleResize);
 
+    const container = containerRef.current;
     return () => {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(frameId);
       renderer.dispose();
       scene.clear();
-      if (containerRef.current) containerRef.current.innerHTML = "";
+      if (container) container.innerHTML = "";
     };
   }, []);
 

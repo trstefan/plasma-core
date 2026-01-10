@@ -1,4 +1,4 @@
-import { exp } from "three/tsl";
+import React from "react";
 
 const RangeInput: React.FC<{
   label: string;

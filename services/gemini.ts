@@ -47,7 +47,7 @@ Include numeric values for:
 
     try {
         return JSON.parse(text);
-    } catch (e) {
+    } catch {
         console.error("Failed to parse Gemini JSON:", text);
         return null;
     }
